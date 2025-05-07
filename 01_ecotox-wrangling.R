@@ -44,15 +44,17 @@ species <- ecotox %>%
 # Filter for lepidopterans
 ## I want this done first for personal reasons... my meta analysis maybe!
 ## Split into genus column -- assuming NAs generated are due to family level data, but ned to check
+# 119 at Insecta level...
 ecotox <- ecotox %>%
   separate(species_scientific_name, into = c("genus", "species"), sep = "^\\S*\\K\\s+")
 
 genus <- ecotox %>%
   count(genus)
 
-# A-C done
+# A-L done
+# Not including Insecta
 ecotox %>%
-  filter(Endpoint %in% c("Acrolepia", "Adoxophyes", "Agrotis", "Alabama", "Amyelois", "Anagasta", "Anarsia", "Antheraea", "Anticarsia", "Aroga", "Athetis", "Autographa", "Bombyx", "Cadra", "Catopsilia", "Cerconota", "Chilo", "Choristoneura", "Chrysodeixis", "Cnaphalocrocis", "Cochylis", "Coleotechnites", "Conopomorpha", "Corcyra", "Crocidolomia", "Cydia", ""))
+  filter(Endpoint %in% c("Acrolepia", "Adoxophyes", "Agrotis", "Alabama", "Amyelois", "Anagasta", "Anarsia", "Antheraea", "Anticarsia", "Aroga", "Athetis", "Autographa", "Bombyx", "Cadra", "Catopsilia", "Cerconota", "Chilo", "Choristoneura", "Chrysodeixis", "Cnaphalocrocis", "Cochylis", "Coleotechnites", "Conopomorpha", "Corcyra", "Crocidolomia", "Cydia", "Danaus", "Diatraea", "Dioryctria", "Earias", "Egira", "Elasmopalpus", "Emmalocera", "Ephestia", "Epiphyas", "Epirrita", "Estigmene", "Etiella", "Eublemma", "Galleria", "Glyphodes", "Grapholita", "Helicoverpa", "Heliothis", "Hellula", "Homoeosoma", "Homona", "Hydria", "Hypena", "Issoria", "Itame", "Keiferia", "Lacanobia", "Lampides", "Leguminivora", "Lepidoptera", "Leucinodes", "Leucoptera", "Lobesia", "Lymantria", ""))
 
 # Check types of endpoints -- NA endpoint is concerning, LOEL/NOEL may be useful...
 ecotox %>%
