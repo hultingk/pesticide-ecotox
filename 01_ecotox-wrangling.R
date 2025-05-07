@@ -2,8 +2,9 @@
 
 ## loading libraries
 librarian::shelf(tidyverse, googledrive, googlesheets4)
+library(janitor)
  
-## importing data from shared google folder
+## importing data from shared google folder (queried May 6, 2025)
 googledrive::drive_auth()
 ecotox_1 <- read_sheet("https://docs.google.com/spreadsheets/d/1aUQUue9Jh3M0EhE9F72n_RMqHUKV5I18cygncvjhAoE/edit?gid=183310004#gid=183310004")
 ecotox_2 <- read_sheet("https://docs.google.com/spreadsheets/d/1yrPc7CypDj51oUEMUklh9kZq3uEJSsRglgZ-WfSr7L4/edit?gid=1038203519#gid=1038203519")
@@ -26,8 +27,11 @@ ecotox <- rbind(
 # looking at distinct rows -- there are some duplicate rows -- leaving these in for now 
 distinct(ecotox)
 
-ecotox %>%
-  count(`Species Scientific Name`) # lots of species!
+# Clean column names
+ecotox <- clean_names(ecotox)
+
+species <- ecotox %>%
+  count(species_scientific_name) # lots of species!
 
 #### TO DO ####
 # 1. Filter for LD50 or LC50 where the effect is mortality
@@ -37,11 +41,26 @@ ecotox %>%
 # 5. Note gaps for Leps, note variation in addition to mean values
 #########
 
+# Filter for lepidopterans
+## I want this done first for personal reasons... my meta analysis maybe!
+## Split into genus column -- assuming NAs generated are due to family level data, but ned to check
+ecotox <- ecotox %>%
+  separate(species_scientific_name, into = c("genus", "species"), sep = "^\\S*\\K\\s+")
+
+genus <- ecotox %>%
+  count(genus)
+
+# A-C done
+ecotox %>%
+  filter(Endpoint %in% c("Acrolepia", "Adoxophyes", "Agrotis", "Alabama", "Amyelois", "Anagasta", "Anarsia", "Antheraea", "Anticarsia", "Aroga", "Athetis", "Autographa", "Bombyx", "Cadra", "Catopsilia", "Cerconota", "Chilo", "Choristoneura", "Chrysodeixis", "Cnaphalocrocis", "Cochylis", "Coleotechnites", "Conopomorpha", "Corcyra", "Crocidolomia", "Cydia", ""))
+
+# Check types of endpoints -- NA endpoint is concerning, LOEL/NOEL may be useful...
+ecotox %>%
+  count(endpoint) %>%
+  print(n = nrow(.))
 
 ## filtering for chosen response measured -- narrows it down a lot
 ecotox <- ecotox %>%
-  filter(Endpoint %in% c("LD50", "LC50")) %>%
-  filter(Effect %in% c("Mortality"))
-
-
+  filter(endpoint %in% c("LD50", "LC50")) %>%
+  filter(effect %in% c("Mortality"))
 
