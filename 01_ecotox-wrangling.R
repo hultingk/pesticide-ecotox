@@ -31,8 +31,17 @@ ecotox %>%
 
 #### TO DO ####
 # 1. Filter for LD50 or LC50 where the effect is mortality
-# 2. Filter for lepidotera (might have to manually go through and split species name into genus/species column, filter for lepidoptera genera)
-# 3. Assign chemical name to class of pesticide/other toxin
+# 2. Look at observed response units
+# 3. Filter for lepidotera (might have to manually go through and split species name into genus/species column, filter for lepidoptera genera)
+# 4. Assign chemical name to class of pesticide/other toxin
+# 5. Note gaps for Leps, note variation in addition to mean values
+#########
+
+
+## filtering for chosen response measured -- narrows it down a lot
+ecotox <- ecotox %>%
+  filter(Endpoint %in% c("LD50", "LC50")) %>%
+  filter(Effect %in% c("Mortality"))
 
 
 
