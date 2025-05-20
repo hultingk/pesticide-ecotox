@@ -173,8 +173,39 @@ lep_data <- lep_data %>%
     pesticide_class %in% c("pyrethrins and pyrethroids", "pyrethroid", "pyrethroid ether") ~ "pyrethroid",
     .default = pesticide_class
   )) %>%
-  filter(!pesticide %in% c("no", "NA"))
+  filter(!pesticide %in% c("no", "NA", "commercial mixture", "pesticide metabolite"))
  
+# filtering out subset of pesticide classes and response units
+lep_data_sub <- lep_data %>%
+  filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
+                                "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
+  filter(effect_measurement == "Mortality") %>%
+  filter(endpoint == "LD50") %>%
+  filter(observed_response_units %in% c("ug/org", "ug/g", "ug/g bdwt")) %>%
+  filter(exposure_type %in% c("Topical, general", "Dermal"))
+
+# log transformed overview
+lep_data_sub %>%
+  ggplot() +
+  geom_boxplot(aes(pesticide_class, log(conc_1_mean_author), fill = pesticide_class)) +
+  facet_grid(observed_response_units~exposure_type) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 60,  hjust=1))
 
 
+## making table of means for major classes broken up by exposure type, endpoint, and units
+lep_data %>%
+  filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
+                                "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
+  filter(effect_measurement == "Mortality") %>%
+  group_by(pesticide_class, exposure_type, endpoint, observed_response_units) %>%
+  summarise(n = n(),
+            mean = mean(conc_1_mean_author),
+            median = median(conc_1_mean_author),
+            sd = sd(conc_1_mean_author),
+            min = min(conc_1_mean_author), 
+            max = max(conc_1_mean_author))
+  
+### TO DO
+# convert between units
 
