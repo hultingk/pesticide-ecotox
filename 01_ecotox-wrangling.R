@@ -16,6 +16,8 @@ librarian::shelf(tidyverse, googledrive, googlesheets4, janitor)
 lep_general_mortality <- read_sheet("https://docs.google.com/spreadsheets/d/1CuuLMViB8obWlAGZihlWlUvcpKP6DpWJbYnGrFfaJM0/edit?gid=1293937341#gid=1293937341")
 lep_other_mortality <- read_sheet("https://docs.google.com/spreadsheets/d/1G14T3yslAiXOknL1aJ9drzb1wsTffJHewW8s0QWOW1A/edit?gid=1323975835#gid=1323975835")
 
+# IMPORTING USGS pesticides
+usgs <- read_sheet("https://docs.google.com/spreadsheets/d/1Mg-_Yb_jGcqwn8psEeNgs2sHzMIaN7CEvsRoftttJh4/edit?gid=0#gid=0")
 
 ##### OLD CODE: JUMP TO LEP DATA FOR NEW EXPORTS ####
 # combining into one dataframe
@@ -132,6 +134,7 @@ lep_data <- rbind(
 # cleaning column names
 lep_data <- clean_names(lep_data)
 
+
 # filtering what we need
 lep_data <- lep_data %>%
   separate(species_scientific_name, into = c("genus", "species"), sep = "^\\S*\\K\\s+") %>% # separating into genus and species 
@@ -209,3 +212,17 @@ lep_data %>%
 ### TO DO
 # convert between units
 
+#### checking to see what we have for USGS data
+usgs$pesticide_name <- tolower(usgs$pesticide_name)
+lep_data$pesticide_name <- tolower(lep_data$pesticide_name)
+
+usgs %>%
+  anti_join(lep_data, by = "pesticide_name") # matches 83 pesticides, should match 97, need to fix names
+
+lep_data %>%
+  count(pesticide_name) %>%
+  View()
+
+lep_data %>%
+  count(pesticide_name, USGS) %>%
+  count(USGS)
