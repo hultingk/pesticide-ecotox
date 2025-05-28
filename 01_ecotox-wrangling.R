@@ -167,6 +167,7 @@ chemical_info <- read_sheet("https://docs.google.com/spreadsheets/d/1_v6aEuPvog9
 chemical_info <- chemical_info %>%
   dplyr::select(!c("chemical_name", "n"))
 
+# join to pesticide info, fix pesticide classifications
 lep_data <- lep_data %>%
   left_join(chemical_info, by = "cas_number") %>% # joining by CAS number
   mutate(pesticide_class = dplyr::case_when(
@@ -177,52 +178,127 @@ lep_data <- lep_data %>%
     .default = pesticide_class
   )) %>%
   filter(!pesticide %in% c("no", "NA", "commercial mixture", "pesticide metabolite"))
- 
-# filtering out subset of pesticide classes and response units
+
+# organize into topical vs not topical
+lep_data <- lep_data %>%
+  mutate(exposure_type = dplyr::case_when(
+    exposure_type %in% c("Dermal", "Dipped or soaked", "Direct application",
+                         "Immersion", "Spray, foliar", "Spray, hand", "Spray, unspecified",
+                         "Surface area dose", "Topical, general") ~ "Topical",
+    exposure_type %in% c("Diet, unspecified", "Food", "Injection, unspecified") ~ "Consumed/injected",
+    exposure_type %in% c("Environmental, unspecified", "Fumigation", "Multiple routes between application groups",
+                         "Multiple routes within environmental exposures", "Subcutaneous") ~ "Other"
+  ))
+
+
+#### FILTERING ####
 lep_data_sub <- lep_data %>%
-  filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
-                                "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
-  filter(effect_measurement == "Mortality") %>%
-  filter(endpoint == "LD50") %>%
-  filter(observed_response_units %in% c("ug/org", "ug/g", "ug/g bdwt")) %>%
-  filter(exposure_type %in% c("Topical, general", "Dermal"))
+  filter(observed_duration_days < 5) %>% # want observations of 1-4 days
+  filter(organism_lifestage %in% c("Instar", "Larva")) # filtering for larva
+
+
+###### standardize between units ######
+lep_data_sub <- lep_data_sub %>% # filtering unwanted units
+  filter(!observed_response_units %in% c("ppm", "AI %", "%", "ug/eu", "ppm diet", "AI", "% diet", "AI % diet",
+                                     "ug/cm2 lf", "ug/cm2", "AI ug/cm2 diet", "ng", "ug", "mg h/L")) 
+
+# getting rid of "AI" in some units -- all are active ingredients
+lep_data_sub <- lep_data_sub %>%
+  mutate(observed_response_units = if_else(str_detect(lep_data_sub$observed_response_units, "AI"), str_sub(lep_data_sub$observed_response_units, start = 4), observed_response_units)) %>%
+  mutate(observed_response_units = dplyr::case_when(
+    observed_response_units %in% c("mg/L", "mg/L diet", "mg/L diet") ~ "mg/L",
+    observed_response_units %in% c("ai g/L") ~ "g/L",
+    .default = observed_response_units
+  ))
+  
+# converting between units that don't deal with body weight -- targeting mg/L bc that's what most units are in
+## converting mg/ml to mg/L
+##### TESTING 
+lep_data_test <- lep_data_sub %>%
+  filter(observed_response_units == "mg/ml")
+
+for (i in 1:nrow(lep_data_test)) {
+  if (lep_data_test$observed_response_units[i] == "mg/ml") {
+    lep_data_test$observed_response_mean[i] = lep_data_test$observed_response_mean[i] * 1000
+    lep_data_test$observed_response_min[i] = lep_data_test$observed_response_min[i] * 1000
+    lep_data_test$observed_response_max[i] = lep_data_test$observed_response_max[i] * 1000
+    lep_data_test$observed_response_units[i] = "mg/L"
+  }
+}
+
+
+# convert_to_mg.L <- function(df, mean_response, min_response, max_response, unit_column) {
+#   conversion_factors <- c(
+#     "mg/ml" = 1000,
+#     "ug/ml" = 1,
+#     "g/L" = 1000,
+#     "ug/L" = 1/1000,
+#     "g/ml" = 1000000,
+#     "ng/ml" = 1/1000,
+#     "ul/L" = 1/1000
+#   )
+#   
+#   for (i in 1:nrow(df)) {
+#     unit <- tolower(df[i, unit_column])
+#     if (unit %in% names(conversion_factors)) {
+#       factor <- conversion_factors[unit]
+#       df$mean_response <- df$mean_response * factor
+#       df$min_response <- df$min_response * factor
+#       df$max_response <- df$max_response * factor
+#     }
+#   }
+#   return(df)
+# }
+
+
+
+
+###################################
+# filtering out subset of pesticide classes and response units
+# lep_data_sub <- lep_data %>%
+#   filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
+#                                 "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
+#   filter(effect_measurement == "Mortality") %>%
+#   filter(endpoint == "LD50") %>%
+#   filter(observed_response_units %in% c("ug/org", "ug/g", "ug/g bdwt")) %>%
+#   filter(exposure_type %in% c("Topical, general", "Dermal"))
 
 # log transformed overview
-lep_data_sub %>%
-  ggplot() +
-  geom_boxplot(aes(pesticide_class, log(conc_1_mean_author), fill = pesticide_class)) +
-  facet_grid(observed_response_units~exposure_type) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 60,  hjust=1))
+# lep_data_sub %>%
+#   ggplot() +
+#   geom_boxplot(aes(pesticide_class, log(conc_1_mean_author), fill = pesticide_class)) +
+#   facet_grid(observed_response_units~exposure_type) +
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 60,  hjust=1))
 
 
 ## making table of means for major classes broken up by exposure type, endpoint, and units
-lep_data %>%
-  filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
-                                "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
-  filter(effect_measurement == "Mortality") %>%
-  group_by(pesticide_class, exposure_type, endpoint, observed_response_units) %>%
-  summarise(n = n(),
-            mean = mean(conc_1_mean_author),
-            median = median(conc_1_mean_author),
-            sd = sd(conc_1_mean_author),
-            min = min(conc_1_mean_author), 
-            max = max(conc_1_mean_author))
+# lep_data %>%
+#   filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
+#                                 "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
+#   filter(effect_measurement == "Mortality") %>%
+#   group_by(pesticide_class, exposure_type, endpoint, observed_response_units) %>%
+#   summarise(n = n(),
+#             mean = mean(conc_1_mean_author),
+#             median = median(conc_1_mean_author),
+#             sd = sd(conc_1_mean_author),
+#             min = min(conc_1_mean_author), 
+#             max = max(conc_1_mean_author))
   
 ### TO DO
 # convert between units
 
-#### checking to see what we have for USGS data
-usgs$pesticide_name <- tolower(usgs$pesticide_name)
-lep_data$pesticide_name <- tolower(lep_data$pesticide_name)
-
-usgs %>%
-  anti_join(lep_data, by = "pesticide_name") # matches 83 pesticides, should match 97, need to fix names
-
-lep_data %>%
-  count(pesticide_name) %>%
-  View()
-
-lep_data %>%
-  count(pesticide_name, USGS) %>%
-  count(USGS)
+# #### checking to see what we have for USGS data
+# usgs$pesticide_name <- tolower(usgs$pesticide_name)
+# lep_data$pesticide_name <- tolower(lep_data$pesticide_name)
+# 
+# usgs %>%
+#   anti_join(lep_data, by = "pesticide_name") # matches 83 pesticides, should match 97, need to fix names
+# 
+# lep_data %>%
+#   count(pesticide_name) %>%
+#   View()
+# 
+# lep_data %>%
+#   count(pesticide_name, USGS) %>%
+#   count(USGS)
