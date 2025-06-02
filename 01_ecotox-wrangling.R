@@ -198,58 +198,104 @@ lep_data_sub <- lep_data %>%
 
 
 ###### standardize between units ######
+lep_data_sub$observed_response_units <- str_trim(lep_data_sub$observed_response_units)
 lep_data_sub <- lep_data_sub %>% # filtering unwanted units
   filter(!observed_response_units %in% c("ppm", "AI %", "%", "ug/eu", "ppm diet", "AI", "% diet", "AI % diet",
-                                     "ug/cm2 lf", "ug/cm2", "AI ug/cm2 diet", "ng", "ug", "mg h/L")) 
+                                     "ug/cm2 lf", "ug/cm2", "AI ug/cm2 diet", "ng", "ug", "mg h/L",
+                                     "mg/cm2", "ug/cm2", "ug/cm2 org", "g/ha")) 
 
-# getting rid of "AI" in some units -- all are active ingredients
+# getting rid of "AI" and "diet" in some units -- all are active ingredients, if it is diet that will be reflected in the exposure route
 lep_data_sub <- lep_data_sub %>%
   mutate(observed_response_units = if_else(str_detect(lep_data_sub$observed_response_units, "AI"), str_sub(lep_data_sub$observed_response_units, start = 4), observed_response_units)) %>%
   mutate(observed_response_units = dplyr::case_when(
     observed_response_units %in% c("mg/L", "mg/L diet", "mg/L diet") ~ "mg/L",
     observed_response_units %in% c("ai g/L") ~ "g/L",
+    observed_response_units %in% c("ug/g diet") ~ "ug/g",
+    observed_response_units %in% c("mg/kg diet") ~ "mg/kg",
+    observed_response_units %in% c("ug/ml diet") ~ "ug/ml",
     .default = observed_response_units
   ))
   
-# converting between units that don't deal with body weight -- targeting mg/L bc that's what most units are in
-## converting mg/ml to mg/L
-##### TESTING 
-lep_data_test <- lep_data_sub %>%
-  filter(observed_response_units == "mg/ml")
+# creating new units and responses columns to not overwrite original
+lep_data_sub <- lep_data_sub %>%
+  mutate(observed_response_units_converted = observed_response_units,
+         observed_response_mean_converted = observed_response_mean,
+         observed_response_min_converted = observed_response_min,
+         observed_response_max_converted = observed_response_max)
 
-for (i in 1:nrow(lep_data_test)) {
-  if (lep_data_test$observed_response_units[i] == "mg/ml") {
-    lep_data_test$observed_response_mean[i] = lep_data_test$observed_response_mean[i] * 1000
-    lep_data_test$observed_response_min[i] = lep_data_test$observed_response_min[i] * 1000
-    lep_data_test$observed_response_max[i] = lep_data_test$observed_response_max[i] * 1000
-    lep_data_test$observed_response_units[i] = "mg/L"
+### LIQUID UNITS: COVERTING UNITS TO mg/L 
+for (i in 1:nrow(lep_data_sub)) {
+  if (lep_data_sub$observed_response_units_converted[i] %in% c("mg/ml", "g/L")) {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1000
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1000
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1000
+    lep_data_sub$observed_response_units_converted[i] = "mg/L"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] == "ug/ml") {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1
+    lep_data_sub$observed_response_units_converted[i] = "mg/L"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] %in% c("ug/L", "ng/ml", "ul/L")) {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1/1000
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1/1000
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1/1000
+    lep_data_sub$observed_response_units_converted[i] = "mg/L"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] == "g/ml") {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1000000
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1000000
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1000000
+    lep_data_sub$observed_response_units_converted[i] = "mg/L"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] == "g/378 L") {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 2.64550265
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 2.64550265
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 2.64550265
+    lep_data_sub$observed_response_units_converted[i] = "mg/L"
   }
 }
 
+#### WEIGHT UNITS: CONVERTING TO ug/g (not considering body weight here, resulting units will be either ug/g or ug/g bodyweight)
+for (i in 1:nrow(lep_data_sub)) {
+  if (lep_data_sub$observed_response_units_converted[i] %in% c("mg/kg")) {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1
+    lep_data_sub$observed_response_units_converted[i] = "ug/g"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] %in% c("mg/g wet wt diet")) {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 0.001
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 0.001
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 0.001
+    lep_data_sub$observed_response_units_converted[i] = "ug/g wet wt diet"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] %in% c("ng/mg bdwt")) {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1
+    lep_data_sub$observed_response_units_converted[i] = "ug/g bdwt"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] %in% c("ug/mg bdwt")) {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1000
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1000
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1000
+    lep_data_sub$observed_response_units_converted[i] = "ug/g bdwt"
+  }
+  else if (lep_data_sub$observed_response_units_converted[i] %in% c("ng/org")) {
+    lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1/1000
+    lep_data_sub$observed_response_min_converted[i] = lep_data_sub$observed_response_min_converted[i] * 1/1000
+    lep_data_sub$observed_response_max_converted[i] = lep_data_sub$observed_response_max_converted[i] * 1/1000
+    lep_data_sub$observed_response_units_converted[i] = "ug/org"
+  }
+}
 
-# convert_to_mg.L <- function(df, mean_response, min_response, max_response, unit_column) {
-#   conversion_factors <- c(
-#     "mg/ml" = 1000,
-#     "ug/ml" = 1,
-#     "g/L" = 1000,
-#     "ug/L" = 1/1000,
-#     "g/ml" = 1000000,
-#     "ng/ml" = 1/1000,
-#     "ul/L" = 1/1000
-#   )
-#   
-#   for (i in 1:nrow(df)) {
-#     unit <- tolower(df[i, unit_column])
-#     if (unit %in% names(conversion_factors)) {
-#       factor <- conversion_factors[unit]
-#       df$mean_response <- df$mean_response * factor
-#       df$min_response <- df$min_response * factor
-#       df$max_response <- df$max_response * factor
-#     }
-#   }
-#   return(df)
-# }
+lep_data_sub <- lep_data_sub %>% # removing units that weren't removed above for some reason
+  filter(!observed_response_units_converted %in% c("ppm", "g/ha", "ug/cm2"))
 
+### MOST COMMON will probably by topical, LD50, ug/org 
+## TO DO: convert the units that use bodyweight to ug/g
 
 
 
@@ -285,20 +331,3 @@ for (i in 1:nrow(lep_data_test)) {
 #             min = min(conc_1_mean_author), 
 #             max = max(conc_1_mean_author))
   
-### TO DO
-# convert between units
-
-# #### checking to see what we have for USGS data
-# usgs$pesticide_name <- tolower(usgs$pesticide_name)
-# lep_data$pesticide_name <- tolower(lep_data$pesticide_name)
-# 
-# usgs %>%
-#   anti_join(lep_data, by = "pesticide_name") # matches 83 pesticides, should match 97, need to fix names
-# 
-# lep_data %>%
-#   count(pesticide_name) %>%
-#   View()
-# 
-# lep_data %>%
-#   count(pesticide_name, USGS) %>%
-#   count(USGS)
