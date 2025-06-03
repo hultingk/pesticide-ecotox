@@ -180,14 +180,15 @@ lep_data <- lep_data %>%
   filter(!pesticide %in% c("no", "NA", "commercial mixture", "pesticide metabolite"))
 
 # organize into topical vs not topical
+# Spray, foliar seems dietary to me, but I can't find the one paper online
 lep_data <- lep_data %>%
   mutate(exposure_type = dplyr::case_when(
     exposure_type %in% c("Dermal", "Dipped or soaked", "Direct application",
                          "Immersion", "Spray, foliar", "Spray, hand", "Spray, unspecified",
                          "Surface area dose", "Topical, general") ~ "Topical",
-    exposure_type %in% c("Diet, unspecified", "Food", "Injection, unspecified") ~ "Consumed/injected",
+    exposure_type %in% c("Diet, unspecified", "Food", "Injection, unspecified", "Subcutaneous") ~ "Consumed/injected",
     exposure_type %in% c("Environmental, unspecified", "Fumigation", "Multiple routes between application groups",
-                         "Multiple routes within environmental exposures", "Subcutaneous") ~ "Other"
+                         "Multiple routes within environmental exposures") ~ "Other"
   ))
 
 
@@ -296,7 +297,9 @@ lep_data_sub <- lep_data_sub %>% # removing units that weren't removed above for
 
 ### MOST COMMON will probably by topical, LD50, ug/org 
 ## TO DO: convert the units that use bodyweight to ug/g
-
+summary <- lep_data_sub %>%
+  group_by(observed_response_units_converted, exposure_type, endpoint) %>%
+  summarize(n = n())
 
 
 ###################################
