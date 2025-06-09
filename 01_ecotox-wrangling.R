@@ -301,6 +301,11 @@ summary <- lep_data_sub %>%
   group_by(observed_response_units_converted, exposure_type, endpoint) %>%
   summarize(n = n())
 
+# IMPORTING bodyweights
+bodyweight <- read_sheet("https://docs.google.com/spreadsheets/d/1xy7qhTDR19MdyVRc2AjtiHVvoKhHGTu8qLxHfAGA_e4/edit?gid=1738994693#gid=1738994693")
+
+# Merge bodyweights with lep data # Need to fill in columns before this step
+x <- left_join(lep_data_sub, bodyweight)
 
 ###################################
 # filtering out subset of pesticide classes and response units
