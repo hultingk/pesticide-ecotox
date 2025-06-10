@@ -195,7 +195,7 @@ lep_data <- lep_data %>%
 #### FILTERING ####
 lep_data_sub <- lep_data %>%
   filter(observed_duration_days < 5) %>% # want observations of 1-4 days
-  filter(organism_lifestage %in% c("Instar", "Larva")) # filtering for larva
+  filter(organism_lifestage %in% c("Instar", "Larva", "Neonate")) # filtering for larva
 
 
 ###### standardize between units ######
@@ -296,7 +296,7 @@ lep_data_sub <- lep_data_sub %>% # removing units that weren't removed above for
   filter(!observed_response_units_converted %in% c("ppm", "g/ha", "ug/cm2"))
 
 ### MOST COMMON will probably by topical, LD50, ug/org 
-## TO DO: convert the units that use bodyweight to ug/g
+## TO DO: convert the units that use bodyweight to ug/org
 summary <- lep_data_sub %>%
   group_by(observed_response_units_converted, exposure_type, endpoint) %>%
   summarize(n = n())
@@ -304,8 +304,33 @@ summary <- lep_data_sub %>%
 # IMPORTING bodyweights
 bodyweight <- read_sheet("https://docs.google.com/spreadsheets/d/1xy7qhTDR19MdyVRc2AjtiHVvoKhHGTu8qLxHfAGA_e4/edit?gid=1738994693#gid=1738994693")
 
-# Merge bodyweights with lep data # Need to fill in columns before this step
-x <- left_join(lep_data_sub, bodyweight)
+# Preparing for merge
+bodyweight <- bodyweight %>%
+  filter(organism_lifestage != "Adult") %>%
+  select(c("citation", "genus", "species", "organism_age_mean", "organism_age_units", "average_org_weight_g"))
+
+# Merge bodyweights with lep data
+lep_data_sub <- left_join(lep_data_sub, bodyweight)
+
+# Convert ug/g org to ug/org # To do
+
+
+# Make summary csv
+final_table <- lep_data_sub %>%
+  filter(exposure_type == "Topical" & observed_response_units_converted == "ug/org") %>%
+  group_by(pesticide_class, observed_response_units_converted) %>%
+  summarize(mean_response = mean(observed_response_mean_converted, na.rm = T), 
+            max_response = max(observed_response_max_converted, na.rm = T),
+            min_response = min(observed_response_min_converted, na.rm = T),
+            n = n(),
+            n_species = length(unique(species_common_name)))
+
+lep_data_sub %>%
+  filter(exposure_type == "Topical" & observed_response_units_converted == "ug/org") %>%
+  mutate(pesticide_class = fct_reorder(pesticide_class, log(observed_response_mean_converted), mean, .na_rm = T)) %>%
+  ggplot(aes(x = pesticide_class, y = log(observed_response_mean_converted), col = pesticide_class)) +
+  geom_jitter() +
+  stat_summary(fun.data = "mean_cl_boot", col = "black")
 
 ###################################
 # filtering out subset of pesticide classes and response units
