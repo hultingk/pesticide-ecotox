@@ -195,7 +195,9 @@ lep_data <- lep_data %>%
 #### FILTERING ####
 lep_data_sub <- lep_data %>%
   filter(observed_duration_days < 5) %>% # want observations of 1-4 days
-  filter(organism_lifestage %in% c("Instar", "Larva", "Neonate")) # filtering for larva
+  filter(organism_lifestage %in% c("Instar", "Larva", "Neonate")) %>% # filtering for larva
+  filter(endpoint == "LD50") # only keeping LD50
+
 
 
 ###### standardize between units ######
@@ -258,7 +260,7 @@ for (i in 1:nrow(lep_data_sub)) {
   }
 }
 
-#### WEIGHT UNITS: CONVERTING TO ug/g (not considering body weight here, resulting units will be either ug/g or ug/g bodyweight)
+#### WEIGHT UNITS: CONVERTING TO ug/g (not considering body weight here, resulting units will be ug/org)
 for (i in 1:nrow(lep_data_sub)) {
   if (lep_data_sub$observed_response_units_converted[i] %in% c("mg/kg")) {
     lep_data_sub$observed_response_mean_converted[i] = lep_data_sub$observed_response_mean_converted[i] * 1
@@ -312,25 +314,44 @@ bodyweight <- bodyweight %>%
 # Merge bodyweights with lep data
 lep_data_sub <- left_join(lep_data_sub, bodyweight)
 
-# Convert ug/g org to ug/org # To do
+# Convert ug/g org to ug/org 
+lep_data_sub <- lep_data_sub %>%
+  mutate(mean_response_ug_org = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), observed_response_mean_converted*average_org_weight_g, observed_response_mean_converted),
+         min_response_ug_org = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), observed_response_min_converted*average_org_weight_g, observed_response_min_converted),
+         max_response_ug_org = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), observed_response_max_converted*average_org_weight_g, observed_response_max_converted),
+         converted_units = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), "ug/org", observed_response_units_converted))
 
 
 # Make summary csv
 final_table <- lep_data_sub %>%
-  filter(exposure_type == "Topical" & observed_response_units_converted == "ug/org") %>%
-  group_by(pesticide_class, observed_response_units_converted) %>%
-  summarize(mean_response = mean(observed_response_mean_converted, na.rm = T), 
-            max_response = max(observed_response_max_converted, na.rm = T),
-            min_response = min(observed_response_min_converted, na.rm = T),
-            n = n(),
-            n_species = length(unique(species_common_name)))
+  filter(!is.na(mean_response_ug_org)) %>%
+  filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
+  group_by(pesticide_class, pesticide_name, converted_units) %>%
+  summarize(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+            median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+            sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+            n = n(), # number of studies
+            n_species = length(unique(species_common_name))) # number of species tested
 
-lep_data_sub %>%
-  filter(exposure_type == "Topical" & observed_response_units_converted == "ug/org") %>%
-  mutate(pesticide_class = fct_reorder(pesticide_class, log(observed_response_mean_converted), mean, .na_rm = T)) %>%
-  ggplot(aes(x = pesticide_class, y = log(observed_response_mean_converted), col = pesticide_class)) +
+# exporting
+#write.csv(final_table, file = "Lep_LD50_topical_summary.csv", row.names = F)
+
+# summary plot
+LD50_topical_plot <- lep_data_sub %>%
+  filter(!is.na(mean_response_ug_org)) %>%
+  filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
+  mutate(pesticide_class = fct_reorder(pesticide_class, log(mean_response_ug_org), mean, .na_rm = T)) %>%
+  ggplot(aes(x = pesticide_class, y = log(mean_response_ug_org), col = pesticide_class)) +
   geom_jitter() +
-  stat_summary(fun.data = "mean_cl_boot", col = "black")
+  stat_summary(fun.data = "mean_cl_boot", col = "black") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 60,  hjust=1))
+LD50_topical_plot
+
+# exporting
+#pdf(file = "summary_plot_topicalLD50.pdf", width = 10, height = 7)
+#LD50_topical_plot
+#dev.off()
 
 ###################################
 # filtering out subset of pesticide classes and response units
