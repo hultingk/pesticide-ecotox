@@ -353,6 +353,56 @@ LD50_topical_plot
 #LD50_topical_plot
 #dev.off()
 
+# Total number of species and AI (including non-USGS)
+lep_data_sub %>%
+  filter(!is.na(mean_response_ug_org)) %>%
+  filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
+  summarize(n_pesticides = length(unique(pesticide_name)),
+            n_species = length(unique(species_common_name)))
+
+# Total number of species and AI (ONLY USGS)
+lep_data_sub %>%
+  filter(!is.na(mean_response_ug_org)) %>%
+  filter(exposure_type == "Topical" & converted_units == "ug/org" & USGS == "yes") %>%
+  summarize(n_pesticides = length(unique(pesticide_name)),
+            n_species = length(unique(species_common_name)))
+
+# Look at variance explained by AI and species (inlcuding non-USGS)
+library(car)
+lm1 <- lm(mean_response_ug_org ~ pesticide_name, data = lep_data_sub)
+lm2 <- lm(mean_response_ug_org ~ species_common_name, data = lep_data_sub)
+lm3 <- lm(mean_response_ug_org ~ average_org_weight_g, data = lep_data_sub)
+lm4 <- lm(mean_response_ug_org ~ pesticide_class, data = lep_data_sub)
+summary(lm1) # R2 0.554
+summary(lm2) # R2 0.289
+summary(lm3) # R2 0.078
+summary(lm4) # R2 0.036 (class does not explain well, but less info)
+
+# Unique species/pesticide combos causing problems...
+lm <- lm(mean_response_ug_org ~ pesticide_name + species_common_name, data = lep_data_sub)
+summary(lm)
+Anova(lm, type = "II")
+vif(lm)
+alias(lm)
+
+# Remove unique species pesticide combo
+lm_data <- lep_data_sub %>%
+  group_by(species_common_name, pesticide_name) %>%
+  mutate(n=n()) %>%
+  filter(n>1) %>%
+  ungroup() %>%
+  dplyr::select(-n)
+lm_data <- lm_data %>%
+  filter(species_common_name != "Yellow Peach Moth" & species_common_name != "Rice Moth" & 
+           species_common_name != "Monarch Butterfly" & species_common_name != "Mediterranean Flour Moth") %>%
+  drop_na(mean_response_ug_org)
+
+lm_rm <- lm(mean_response_ug_org ~ pesticide_name + species_common_name, data = lm_data)
+summary(lm_rm)
+Anova(lm_rm, type = "II")
+vif(lm_rm)
+alias(lm_rm)
+
 ###################################
 # filtering out subset of pesticide classes and response units
 # lep_data_sub <- lep_data %>%
