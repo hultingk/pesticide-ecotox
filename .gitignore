@@ -52,3 +52,4 @@ rsconnect/
 #ignore R project and csv files
 *.Rproj
 *.csv
+*.DS_Store

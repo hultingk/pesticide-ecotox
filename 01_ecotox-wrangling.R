@@ -321,6 +321,9 @@ lep_data_sub <- lep_data_sub %>%
          max_response_ug_org = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), observed_response_max_converted*average_org_weight_g, observed_response_max_converted),
          converted_units = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), "ug/org", observed_response_units_converted))
 
+# having issues with column types for exporting - converting to character for exporting
+#lep_data_sub_export <- data.frame(lapply(lep_data_sub, as.character), stringsAsFactors=FALSE)
+#write.csv(lep_data_sub_export, file = "lep_ecotox_sub.csv", row.names = F)
 
 # Make summary csv
 final_table <- lep_data_sub %>%
