@@ -118,6 +118,8 @@ honeybee <- honeybee %>%
 
 # range of values is similar, generally honeybees have lower LD50s
 honeybee %>%
+  filter(Exposure_Type == "Dermal") %>%
+  filter(PestFamily_AdjClass != "Insect Growth Regulator") %>%
   ggplot(aes(PestFamily_AdjClass, median_ld50)) +
   geom_point(alpha = 0.5) +
   theme_minimal(base_size = 12) +  
@@ -132,9 +134,28 @@ summary_table %>%
   theme(axis.text.x = element_text(angle = 60,  hjust=1))
 
 
+# distributions of values of major pesticide classes -- log transformed
+honeybee %>%
+  filter(Exposure_Type == "Dermal") %>%
+  filter(PestFamily_AdjClass %in% c("Carbamate", "Neonicotinoid", "Organophosphate", "Pyrethroid")) %>%
+  ggplot(aes(log(median_ld50), fill = PestFamily_AdjClass)) +
+  geom_histogram()
+
+summary_table %>%
+  filter(pesticide_class %in% c("carbamate", "neonicotinoid", "organophosphate", "pyrethroid")) %>%
+  ggplot(aes(log(median_LD50), fill = pesticide_class)) +
+  geom_histogram()
 
 ##### Pest vs nonpest #####
 lep_topical_3_4 %>%
   count(pest) ## way more pests, only 5 observations of nonpest 
+
+#### USGS coverage ####
+lep_topical_3_4 %>%
+  count(pesticide_name, USGS) %>%
+  count(USGS)
+# 46 USGS pesticides in this data
+lep_topical_3_4 %>%
+  count(genus_species)
 
 
