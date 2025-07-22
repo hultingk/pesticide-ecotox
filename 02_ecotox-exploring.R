@@ -49,12 +49,20 @@ lep_topical$organism_age_mean <- as.factor(lep_topical$organism_age_mean)
 lep_topical %>%
   count(organism_age_mean)
 
-lep_topical %>%
+lep_instar_plot <- lep_topical %>%
   ggplot(aes(x = organism_age_mean, y = log(mean_response_ug_org), col = organism_age_mean)) +
-  geom_jitter() +
+  geom_jitter(size = 2, alpha = 0.7) +
   stat_summary(fun.data = "mean_cl_boot", col = "black") +
-  theme_minimal(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 60,  hjust=1))
+  theme_minimal(base_size = 16) +
+  #theme(axis.text.x = element_text(angle = 60,  hjust=1)) +
+  xlab("Instar") +
+  ylab("Log(LD50), Topical") +
+  guides(color=guide_legend(title="Instar"))
+lep_instar_plot
+
+ggsave("lep_instar_plot.png", width = 8, height = 6, dpi = 300)
+
+
 
 # how much variation is there in bodyweight for each instar?
 lep_topical %>%
@@ -64,13 +72,19 @@ lep_topical %>%
 # 3rd and 4th instar have fairly comperable bodyweights
 
 # is bodyweight related to LD50 for 3rd and 4th instar
-lep_topical %>%
+body_weight_plot <- lep_topical %>%
+  #filter(genus_species == "Helicoverpa armigera") %>%
   filter(organism_age_mean %in% c("3", "4")) %>%
   ggplot(aes(average_org_weight_g, log(mean_response_ug_org), color = pesticide_class)) +
   geom_smooth(method = "lm") +
   geom_point() +
-  theme_minimal()
+  theme_minimal(base_size = 16) +
+  xlab("Average body weight") +
+  ylab("Log(LD50), Topical") +
+  guides(color=guide_legend(title="Pesticide Class"))
+body_weight_plot
 # to some extent but not super consistently
+ggsave("body_weight_plot.png", width = 8, height = 6, dpi = 500)
 
 
 # most data is from instar 3 or 4 - filtering
@@ -78,13 +92,19 @@ lep_topical_3_4 <- lep_topical %>%
   filter(organism_age_mean %in% c("3", "4"))
 
 # looking at varience in LD50 by pesticide class and instar
-lep_topical_3_4 %>%
-  ggplot(aes(x = pesticide_class, y = log(mean_response_ug_org), col = organism_age_mean, fill = organism_age_mean)) +
-  geom_jitter(position = position_jitterdodge(jitter.width = 1)) +
-  stat_summary(fun.data = "mean_cl_boot", col = "black", position = position_jitterdodge()) +
-  theme_minimal(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 60,  hjust=1))
-  
+comparison_instar_plot <- lep_topical_3_4 %>%
+  ggplot(aes(x = pesticide_class, y = log(mean_response_ug_org), col = organism_age_mean)) +
+  geom_jitter(position = position_jitterdodge(jitter.width = 1), alpha = 0.7) +
+  stat_summary(aes(fill = organism_age_mean), fun.data = "mean_cl_boot", col = "black", position = position_jitterdodge()) +
+  theme_minimal(base_size = 16) +
+  theme(axis.text.x = element_text(angle = 60,  hjust=1)) +
+  xlab("Pesticide class") +
+  ylab("Log(LD50), Topical") +
+  guides(color=guide_legend(title="Instar"),
+         fill = guide_legend(title="Instar"))
+comparison_instar_plot
+#ggsave("comparison_instar_plot.png", width = 8, height = 6, dpi = 450)
+
 
 #### variance between species ####
 lep_topical_3_4 %>% # how many studies per species?
