@@ -60,7 +60,7 @@ lep_instar_plot <- lep_topical %>%
   guides(color=guide_legend(title="Instar"))
 lep_instar_plot
 
-ggsave("lep_instar_plot.png", width = 8, height = 6, dpi = 300)
+#ggsave("lep_instar_plot.png", width = 8, height = 6, dpi = 300)
 
 
 
@@ -84,7 +84,7 @@ body_weight_plot <- lep_topical %>%
   guides(color=guide_legend(title="Pesticide Class"))
 body_weight_plot
 # to some extent but not super consistently
-ggsave("body_weight_plot.png", width = 8, height = 6, dpi = 500)
+#ggsave("body_weight_plot.png", width = 8, height = 6, dpi = 500)
 
 
 # most data is from instar 3 or 4 - filtering
@@ -110,14 +110,24 @@ comparison_instar_plot
 lep_topical_3_4 %>% # how many studies per species?
   count(genus_species) %>%
   arrange(desc(n))
-
-# for the most studied species, how much variation in LD50? 
 lep_topical_3_4 %>%
-  filter(genus_species == "Helicoverpa armigera") %>%
-  ggplot(aes(pesticide_name, log(mean_response_ug_org), color = pesticide_class)) +
-  geom_point(alpha = 0.5) +
-  theme_minimal(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 60,  hjust=1))
+  count(genus_species) %>%
+  arrange(desc(n))
+# for the most studied species, how much variation in LD50? 
+species_comparison_plot <- lep_topical_3_4 %>%
+  filter(genus_species %in% c("Helicoverpa armigera", "Chilo suppressalis", "Chloridea virescens",
+                              "Chrysodeixis includens", "Spodoptera litura")) %>%
+  ggplot(aes(pesticide_class, log(mean_response_ug_org), color = genus_species)) +
+  geom_jitter(alpha = 0.2, position = position_jitterdodge()) +
+  stat_summary(aes(fill = genus_species), fun.data = "mean_cl_boot", position = position_dodge(0.2), size = 0.7) +
+  theme_minimal(base_size = 16) +
+  theme(axis.text.x = element_text(angle = 60,  hjust=1)) +
+  xlab("Pesticide class") +
+  ylab("Log(LD50), Topical") +
+  guides(color=guide_legend(title="Species"),
+         fill = guide_legend(title="Species"))
+species_comparison_plot
+#ggsave("species_comparison_plot.png", width = 8, height = 6, dpi = 550)
 
 # creating summary table with just instar 3 and 4
 summary_table <- lep_topical_3_4 %>%
