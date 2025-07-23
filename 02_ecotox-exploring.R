@@ -153,6 +153,29 @@ summary_table %>%
   stat_summary(fun.data = "mean_cl_boot", col = "black") +
   theme(axis.text.x = element_text(angle = 60,  hjust=1))
 
+# Merge summary table and honeybee
+honeybee2 <- honeybee %>%
+  filter(Exposure_Type == "Dermal")
+honeybee2$PestFamily_AdjClass <- tolower(honeybee2$PestFamily_AdjClass)
+honeybee2 <- rename(honeybee2, pesticide_class = PestFamily_AdjClass) 
+honeybee2 <- rename(honeybee2, median_LD50 = median_ld50) 
+honeybee2$insect <- "honeybee"
+summary_table2 <- summary_table
+summary_table2$insect <- "lep"
+summary_table2 <- summary_table2 %>%
+  ungroup %>%
+  select(pesticide_class, insect, median_LD50)
+honeybee2 <- honeybee2 %>%
+  select(pesticide_class, insect, median_LD50)
+honeybee_lep <- full_join(honeybee2, summary_table2)
+
+honeybee_lep %>%
+  mutate(pesticide_class = fct_reorder(pesticide_class, log(median_LD50), mean, .na_rm = T)) %>%
+  ggplot(aes(pesticide_class, log(median_LD50), col = insect)) +
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.5), alpha = 0.7) +
+  stat_summary(aes(fill = insect), fun.data = "mean_cl_boot", position = position_jitterdodge(dodge.width = 0.5)) +
+  theme_minimal(base_size = 12) +  
+  theme(axis.text.x = element_text(angle = 60,  hjust=1))
 
 # distributions of values of major pesticide classes -- log transformed
 honeybee %>%
