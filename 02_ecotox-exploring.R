@@ -212,3 +212,52 @@ lep_topical_3_4 %>%
   count(genus_species)
 
 
+
+
+
+##### FINAL CSV, ALL INSTARS ####
+lep_topical_final <- lep_topical %>%
+  dplyr::select(cas_number, chemical_name, pesticide_name, pesticide_class, USGS, genus_species, 
+                pest, organism_lifestage, organism_age_mean, observed_duration_days, exposure_type, effect, endpoint,
+                mean_response_ug_org, min_response_ug_org, max_response_ug_org, converted_units, 
+               author, reference_number, title, source.x, publication_year) %>%
+  rename(instar = organism_age_mean, source = source.x)
+
+write.csv(lep_topical_final, file = "lep_topical_LD50.csv", row.names = F)
+
+
+#### SUMMARY TABLE, ALL INSTARS ####
+# creating summary table with just instar 3 and 4
+summary_table <- lep_topical %>%
+  group_by(pesticide_class, pesticide_name, converted_units) %>%
+  summarize(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+            median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+            sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+            n = n(), # number of studies
+            n_species = length(unique(genus_species))) # number of species tested
+
+write.csv(summary_table, file = "summary_table_topical_LD50.csv", row.names = F)
+
+
+
+
+## spot checking large LD50s
+# highest LD50s
+# 2329.000000, from ref # 119631, resistant strain
+# 1734.600000, from ref # 105786, not resistant strain
+# 501.000000, from ref # 154628, resistant strain
+# 330.000000, from ref # 119631, resistant strain
+# 262.300000, from ref # 108410, not resistant strain
+# 216.300000, from ref # 179964, not resistant strain
+# 202.125000, from ref # 104714, not resistant strain
+# 198.100889, from ref # 104714, not resistant strain
+
+# bottom LD50s
+# 0.0000100, from ref # 117673, not resistant strain
+# 0.0000240, from ref # 121481, not resistant strain? can't access paper
+# 0.0000400, from ref # 181653, not resistant strain
+# 0.0000700, from ref # 181653, not resistant strain
+
+
+  
+
