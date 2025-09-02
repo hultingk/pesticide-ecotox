@@ -39,7 +39,8 @@ honeybee_update <- honeybee_update %>%
     observed_response_units %in% c("AI ug/org", "ug/org") ~ "ug/org"
   ))
 
-
+honeybee_update %>%
+  count(pesticide_class, pesticide_name, organism_lifestage)
 # 6 observations total
 # 4 larval, 2 adult
 
