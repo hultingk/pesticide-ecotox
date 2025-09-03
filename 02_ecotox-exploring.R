@@ -234,12 +234,28 @@ summary_table <- lep_topical %>%
             median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
             sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
             n = n(), # number of studies
-            n_species = length(unique(genus_species))) # number of species tested
+            n_species = length(unique(genus_species)),
+            group = "lep") # number of species tested
 
 write.csv(summary_table, file = "summary_table_topical_LD50.csv", row.names = F)
 
+honeybee2 <- honeybee2 %>%
+  mutate(converted_units = "ug/org") %>%
+  rename(pesticide_name = Active.Ingredient,
+         mean_LD50 = mean_ld50,
+         sd_LD50 = sd_ld50,
+         group = insect)
+honeybee_table <- honeybee2 %>%
+  select(pesticide_class, pesticide_name, group, mean_LD50, median_LD50, sd_LD50, converted_units, n)
+lep_table <- summary_table %>%
+  select(pesticide_class, pesticide_name, group, mean_LD50, median_LD50, sd_LD50, converted_units, n)
 
 
+joined_pest_data <- rbind(
+  lep_table, honeybee_table
+)
+
+write.csv(joined_pest_data, file = "joined_summary_table_topical_LD50.csv", row.names = F)
 
 ## spot checking large LD50s
 # highest LD50s
