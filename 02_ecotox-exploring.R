@@ -223,21 +223,27 @@ lep_topical_final <- lep_topical %>%
                author, reference_number, title, source.x, publication_year) %>%
   rename(instar = organism_age_mean, source = source.x)
 
-write.csv(lep_topical_final, file = "lep_topical_LD50.csv", row.names = F)
+#write.csv(lep_topical_final, file = "lep_topical_LD50.csv", row.names = F)
 
 
 #### SUMMARY TABLE, ALL INSTARS ####
 # creating summary table with just instar 3 and 4
 summary_table <- lep_topical %>%
-  group_by(pesticide_class, pesticide_name, converted_units) %>%
-  summarize(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+  group_by(pesticide_class, pesticide_name, converted_units, USGS) %>%
+  reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
             median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
             sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
             n = n(), # number of studies
             n_species = length(unique(genus_species)),
             group = "lep") # number of species tested
+summary_table$pesticide_name <- toupper(summary_table$pesticide_name)
 
-write.csv(summary_table, file = "summary_table_topical_LD50.csv", row.names = F)
+
+
+
+
+
+#write.csv(summary_table, file = "summary_table_topical_LD50.csv", row.names = F)
 
 honeybee2 <- honeybee2 %>%
   mutate(converted_units = "ug/org") %>%
