@@ -199,7 +199,6 @@ lep_data_sub <- lep_data %>%
   filter(endpoint == "LD50") # only keeping LD50
 
 
-
 ###### standardize between units ######
 lep_data_sub$observed_response_units <- str_trim(lep_data_sub$observed_response_units)
 lep_data_sub <- lep_data_sub %>% # filtering unwanted units
@@ -322,119 +321,119 @@ lep_data_sub <- lep_data_sub %>%
          converted_units = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), "ug/org", observed_response_units_converted))
 
 # having issues with column types for exporting - converting to character for exporting
-#lep_data_sub_export <- data.frame(lapply(lep_data_sub, as.character), stringsAsFactors=FALSE)
-#write.csv(lep_data_sub_export, file = "lep_ecotox_sub.csv", row.names = F)
+lep_data_sub_export <- data.frame(lapply(lep_data_sub, as.character), stringsAsFactors=FALSE)
+write.csv(lep_data_sub_export, file = "lep_ecotox_sub.csv", row.names = F)
 
-# Make summary csv
-final_table <- lep_data_sub %>%
-  filter(!is.na(mean_response_ug_org)) %>%
-  filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
-  group_by(pesticide_class, pesticide_name, converted_units) %>%
-  summarize(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
-            median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
-            sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
-            n = n(), # number of studies
-            n_species = length(unique(species_common_name))) # number of species tested
-
-# exporting
-#write.csv(final_table, file = "Lep_LD50_topical_summary.csv", row.names = F)
-
-# summary plot
-LD50_topical_plot <- lep_data_sub %>%
-  filter(!is.na(mean_response_ug_org)) %>%
-  filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
-  mutate(pesticide_class = fct_reorder(pesticide_class, log(mean_response_ug_org), mean, .na_rm = T)) %>%
-  ggplot(aes(x = pesticide_class, y = log(mean_response_ug_org), col = pesticide_class)) +
-  geom_jitter() +
-  stat_summary(fun.data = "mean_cl_boot", col = "black") +
-  theme_minimal(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 60,  hjust=1))
-LD50_topical_plot
+# # Make summary csv
+# final_table <- lep_data_sub %>%
+#   filter(!is.na(mean_response_ug_org)) %>%
+#   filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
+#   group_by(pesticide_class, pesticide_name, converted_units) %>%
+#   summarize(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+#             median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+#             sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+#             n = n(), # number of studies
+#             n_species = length(unique(species_common_name))) # number of species tested
+# 
+# # exporting
+# #write.csv(final_table, file = "Lep_LD50_topical_summary.csv", row.names = F)
+# 
+# # summary plot
+# LD50_topical_plot <- lep_data_sub %>%
+#   filter(!is.na(mean_response_ug_org)) %>%
+#   filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
+#   mutate(pesticide_class = fct_reorder(pesticide_class, log(mean_response_ug_org), mean, .na_rm = T)) %>%
+#   ggplot(aes(x = pesticide_class, y = log(mean_response_ug_org), col = pesticide_class)) +
+#   geom_jitter() +
+#   stat_summary(fun.data = "mean_cl_boot", col = "black") +
+#   theme_minimal(base_size = 12) +
+#   theme(axis.text.x = element_text(angle = 60,  hjust=1))
+# LD50_topical_plot
 
 # exporting
 #pdf(file = "summary_plot_topicalLD50.pdf", width = 10, height = 7)
 #LD50_topical_plot
 #dev.off()
 
-# Total number of species and AI (including non-USGS)
-lep_data_sub %>%
-  filter(!is.na(mean_response_ug_org)) %>%
-  filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
-  summarize(n_pesticides = length(unique(pesticide_name)),
-            n_species = length(unique(species_common_name)))
-
-# Total number of species and AI (ONLY USGS)
-lep_data_sub %>%
-  filter(!is.na(mean_response_ug_org)) %>%
-  filter(exposure_type == "Topical" & converted_units == "ug/org" & USGS == "yes") %>%
-  summarize(n_pesticides = length(unique(pesticide_name)),
-            n_species = length(unique(species_common_name)))
-
-# Look at variance explained by AI and species (inlcuding non-USGS)
-library(car)
-lm1 <- lm(mean_response_ug_org ~ pesticide_name, data = lep_data_sub)
-lm2 <- lm(mean_response_ug_org ~ species_common_name, data = lep_data_sub)
-lm3 <- lm(mean_response_ug_org ~ average_org_weight_g, data = lep_data_sub)
-lm4 <- lm(mean_response_ug_org ~ pesticide_class, data = lep_data_sub)
-summary(lm1) # R2 0.554
-summary(lm2) # R2 0.289
-summary(lm3) # R2 0.078
-summary(lm4) # R2 0.036 (class does not explain well, but less info)
-
-# Unique species/pesticide combos causing problems...
-lm <- lm(mean_response_ug_org ~ pesticide_name + species_common_name, data = lep_data_sub)
-summary(lm)
-Anova(lm, type = "II")
-vif(lm)
-alias(lm)
-
-# Remove unique species pesticide combo
-lm_data <- lep_data_sub %>%
-  group_by(species_common_name, pesticide_name) %>%
-  mutate(n=n()) %>%
-  filter(n>1) %>%
-  ungroup() %>%
-  dplyr::select(-n)
-lm_data <- lm_data %>%
-  filter(species_common_name != "Yellow Peach Moth" & species_common_name != "Rice Moth" & 
-           species_common_name != "Monarch Butterfly" & species_common_name != "Mediterranean Flour Moth") %>%
-  drop_na(mean_response_ug_org)
-
-lm_rm <- lm(mean_response_ug_org ~ pesticide_name + species_common_name, data = lm_data)
-summary(lm_rm)
-Anova(lm_rm, type = "II")
-vif(lm_rm)
-alias(lm_rm)
-
-###################################
-# filtering out subset of pesticide classes and response units
-# lep_data_sub <- lep_data %>%
-#   filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
-#                                 "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
-#   filter(effect_measurement == "Mortality") %>%
-#   filter(endpoint == "LD50") %>%
-#   filter(observed_response_units %in% c("ug/org", "ug/g", "ug/g bdwt")) %>%
-#   filter(exposure_type %in% c("Topical, general", "Dermal"))
-
-# log transformed overview
+# # Total number of species and AI (including non-USGS)
 # lep_data_sub %>%
-#   ggplot() +
-#   geom_boxplot(aes(pesticide_class, log(conc_1_mean_author), fill = pesticide_class)) +
-#   facet_grid(observed_response_units~exposure_type) +
-#   theme_minimal() +
-#   theme(axis.text.x = element_text(angle = 60,  hjust=1))
-
-
-## making table of means for major classes broken up by exposure type, endpoint, and units
-# lep_data %>%
-#   filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
-#                                 "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
-#   filter(effect_measurement == "Mortality") %>%
-#   group_by(pesticide_class, exposure_type, endpoint, observed_response_units) %>%
-#   summarise(n = n(),
-#             mean = mean(conc_1_mean_author),
-#             median = median(conc_1_mean_author),
-#             sd = sd(conc_1_mean_author),
-#             min = min(conc_1_mean_author), 
-#             max = max(conc_1_mean_author))
-  
+#   filter(!is.na(mean_response_ug_org)) %>%
+#   filter(exposure_type == "Topical" & converted_units == "ug/org") %>%
+#   summarize(n_pesticides = length(unique(pesticide_name)),
+#             n_species = length(unique(species_common_name)))
+# 
+# # Total number of species and AI (ONLY USGS)
+# lep_data_sub %>%
+#   filter(!is.na(mean_response_ug_org)) %>%
+#   filter(exposure_type == "Topical" & converted_units == "ug/org" & USGS == "yes") %>%
+#   summarize(n_pesticides = length(unique(pesticide_name)),
+#             n_species = length(unique(species_common_name)))
+# 
+# # Look at variance explained by AI and species (inlcuding non-USGS)
+# library(car)
+# lm1 <- lm(mean_response_ug_org ~ pesticide_name, data = lep_data_sub)
+# lm2 <- lm(mean_response_ug_org ~ species_common_name, data = lep_data_sub)
+# lm3 <- lm(mean_response_ug_org ~ average_org_weight_g, data = lep_data_sub)
+# lm4 <- lm(mean_response_ug_org ~ pesticide_class, data = lep_data_sub)
+# summary(lm1) # R2 0.554
+# summary(lm2) # R2 0.289
+# summary(lm3) # R2 0.078
+# summary(lm4) # R2 0.036 (class does not explain well, but less info)
+# 
+# # Unique species/pesticide combos causing problems...
+# lm <- lm(mean_response_ug_org ~ pesticide_name + species_common_name, data = lep_data_sub)
+# summary(lm)
+# Anova(lm, type = "II")
+# vif(lm)
+# alias(lm)
+# 
+# # Remove unique species pesticide combo
+# lm_data <- lep_data_sub %>%
+#   group_by(species_common_name, pesticide_name) %>%
+#   mutate(n=n()) %>%
+#   filter(n>1) %>%
+#   ungroup() %>%
+#   dplyr::select(-n)
+# lm_data <- lm_data %>%
+#   filter(species_common_name != "Yellow Peach Moth" & species_common_name != "Rice Moth" & 
+#            species_common_name != "Monarch Butterfly" & species_common_name != "Mediterranean Flour Moth") %>%
+#   drop_na(mean_response_ug_org)
+# 
+# lm_rm <- lm(mean_response_ug_org ~ pesticide_name + species_common_name, data = lm_data)
+# summary(lm_rm)
+# Anova(lm_rm, type = "II")
+# vif(lm_rm)
+# alias(lm_rm)
+# 
+# ###################################
+# # filtering out subset of pesticide classes and response units
+# # lep_data_sub <- lep_data %>%
+# #   filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
+# #                                 "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
+# #   filter(effect_measurement == "Mortality") %>%
+# #   filter(endpoint == "LD50") %>%
+# #   filter(observed_response_units %in% c("ug/org", "ug/g", "ug/g bdwt")) %>%
+# #   filter(exposure_type %in% c("Topical, general", "Dermal"))
+# 
+# # log transformed overview
+# # lep_data_sub %>%
+# #   ggplot() +
+# #   geom_boxplot(aes(pesticide_class, log(conc_1_mean_author), fill = pesticide_class)) +
+# #   facet_grid(observed_response_units~exposure_type) +
+# #   theme_minimal() +
+# #   theme(axis.text.x = element_text(angle = 60,  hjust=1))
+# 
+# 
+# ## making table of means for major classes broken up by exposure type, endpoint, and units
+# # lep_data %>%
+# #   filter(pesticide_class %in% c("pyrethroid", "organophosphate", "neonicotinoid", 
+# #                                 "benzoylurea", "diacylhydrazine", "carbamate", "anthranilic diamide")) %>%
+# #   filter(effect_measurement == "Mortality") %>%
+# #   group_by(pesticide_class, exposure_type, endpoint, observed_response_units) %>%
+# #   summarise(n = n(),
+# #             mean = mean(conc_1_mean_author),
+# #             median = median(conc_1_mean_author),
+# #             sd = sd(conc_1_mean_author),
+# #             min = min(conc_1_mean_author), 
+# #             max = max(conc_1_mean_author))
+#   
