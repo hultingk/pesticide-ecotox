@@ -208,13 +208,20 @@ lep_topical <- lep_topical %>%
   mutate(pesticide_name = dplyr::case_when(
     pesticide_name %in% c("ALPHA-CYPERMETHRIN") ~ "ALPHACYPERMETHRIN",
     #pesticide_name %in% c("BETA-CYPERMETHRIN") ~ "", ### Check to see if this can be combined with CYPERMETHRIN
-    pesticide_name %in% c("CHLORPYRIFOS OXYGEN ANALOG") ~ "CHLORPYRIFOS", ### I think this is valid -- mechanisms of chlorpyrifos toxicity is probably through it's oxygen analog https://pubchem.ncbi.nlm.nih.gov/compound/Chlorpyrifos#section=Biological-Half-Life 
-    #pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "", ### Check to see if this can be combined with CYPERMETHRIN
+    #pesticide_name %in% c("CHLORPYRIFOS OXYGEN ANALOG") ~ "CHLORPYRIFOS", ### I think this is valid -- mechanisms of chlorpyrifos toxicity is probably through it's oxygen analog https://pubchem.ncbi.nlm.nih.gov/compound/Chlorpyrifos#section=Biological-Half-Life 
+   # pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
     pesticide_name %in% c("FLUVALINATE-TAU") ~ "FLUVALINATETAU", 
-    #pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "", ### Check to see if this can be combined with CYPERMETHRIN
+    #pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
     pesticide_name %in% c("ZETA-CYPERMETHRIN") ~ "ZETACYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
     .default = pesticide_name
   ))
+
+# cypermethrin notes
+## zeta-cypermethrin and cypermethrin have the same CAS number in Maggie's spreadsheet, but different LD50s in her data
+## this same CAS number can be used for beta-cypermethrin, but our beta-cypermethrin in our data has a different one
+## there is also a second different CAS number for zeta-cypermethrin
+## Cis and Trans cypermethrin have CAS numbers that don't really show up anywhere, and looking at the paper they come from I'm not really sure how ECOTOX got them
+## perhaps calculate alpha seperately, calculate zeta using the 2 zeta CAS numbers, and calculate cypermethrin aggregating everything
 
 # CHLORPYRIFOS-METHYL not the same as CHLORPYRIFOS - can't be combined
 # ISOFENPHOS only used before 1995 -- banned, still in USGS list but doesn't show up in Maggie's data

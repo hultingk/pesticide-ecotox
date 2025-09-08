@@ -3,6 +3,11 @@ library(tidyverse)
 maggie_ld50 <- read.csv("uniqueCompoundsMD.csv")
 joined_ld50 <- read.csv("joinedLepLD50s.csv")
 
+maggie_ld50 %>%
+  left_join(summary_table, by = c("cmpd_usgs" = "pesticide_name")) %>%
+  count(Compound, group) %>%
+  View()
+
 
 joined_ld50 %>%
   filter(is.na(State)) %>%
@@ -24,3 +29,20 @@ joined_ld50 %>%
   ))
 
 # CHLORPYRIFOS-METHYL not the same as CHLORPYRIFOS
+
+
+maggie_ld50 %>%
+  count(Compound)
+
+chemical_info <- read_sheet("https://docs.google.com/spreadsheets/d/1_v6aEuPvog9GBXyR8BIb7CkOwYDevuPtSuoRQw3LXFM/edit?gid=1160525203#gid=1160525203")
+usgs <- read.csv("USGS_Pesticide-CASRN.csv")
+
+
+chemical_info <- chemical_info %>%
+  full_join(usgs, by = c("cas_number" = "cas"))
+
+chemical_info %>%
+  count(pesticide_name, compound_state, compound_cty, cas_number, USGS) %>%
+  View()
+
+
