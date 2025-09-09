@@ -4,8 +4,8 @@ maggie_ld50 <- read.csv("uniqueCompoundsMD.csv")
 joined_ld50 <- read.csv("joinedLepLD50s.csv")
 
 maggie_ld50 %>%
-  left_join(summary_table, by = c("cmpd_usgs" = "pesticide_name")) %>%
-  count(Compound, group) %>%
+  full_join(summary_table, by = c("Compound" = "pesticide_name")) %>%
+  count(Compound, group, USGS) %>%
   View()
 
 

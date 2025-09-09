@@ -206,13 +206,13 @@ lep_topical_3_4 <- lep_topical %>%
 lep_topical$pesticide_name <- toupper(lep_topical$pesticide_name)
 lep_topical <- lep_topical %>%
   mutate(pesticide_name = dplyr::case_when(
-    pesticide_name %in% c("ALPHA-CYPERMETHRIN") ~ "ALPHACYPERMETHRIN",
-    #pesticide_name %in% c("BETA-CYPERMETHRIN") ~ "", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("ALPHA-CYPERMETHRIN") ~ "ALPHA CYPERMETHRIN",
+    pesticide_name %in% c("BETA-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
     #pesticide_name %in% c("CHLORPYRIFOS OXYGEN ANALOG") ~ "CHLORPYRIFOS", ### I think this is valid -- mechanisms of chlorpyrifos toxicity is probably through it's oxygen analog https://pubchem.ncbi.nlm.nih.gov/compound/Chlorpyrifos#section=Biological-Half-Life 
-   # pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
-    pesticide_name %in% c("FLUVALINATE-TAU") ~ "FLUVALINATETAU", 
-    #pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
-    pesticide_name %in% c("ZETA-CYPERMETHRIN") ~ "ZETACYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("FLUVALINATE-TAU") ~ "FLUVALINATE TAU", 
+    pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("ZETA-CYPERMETHRIN") ~ "ZETA-CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
     .default = pesticide_name
   ))
 
@@ -234,19 +234,39 @@ lep_topical_final <- lep_topical %>%
                author, reference_number, title, source.x, publication_year) %>%
   rename(instar = organism_age_mean, source = source.x)
 
-#write.csv(lep_topical_final, file = "lep_topical_LD50.csv", row.names = F)
+write.csv(lep_topical_final, file = "lep_topical_LD50.csv", row.names = F)
 
 
 #### SUMMARY TABLE, ALL INSTARS ####
 # creating summary table with just instar 3 and 4
 summary_table <- lep_topical %>%
-  group_by(pesticide_class, pesticide_name, converted_units, USGS) %>%
+  group_by(pesticide_class, pesticide_name, converted_units) %>%
   reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
             median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
             sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
             n = n(), # number of studies
             n_species = length(unique(genus_species)),
-            group = "lep") # number of species tested
+            group = "lep") %>% # number of species tested
+  filter(pesticide_name != "CYPERMETHRIN") # calculating cypermethrin seperately as a combo of all cypermethrins
+
+## calculating cypermethrin seperately as a combo of all cypermethrins
+cypermethrin_ld50 <- lep_topical %>%
+  mutate(cypermethrin = if_else(pesticide_name %in% c("ALPHA CYPERMETHRIN", "ZETA-CYPERMETHRIN", "CYPERMETHRIN"), "CYPERMETHRIN", NA)) %>%
+  group_by(pesticide_class, cypermethrin, converted_units) %>%
+  reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+          median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+          sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+          n = n(), # number of studies
+          n_species = length(unique(genus_species)),
+          group = "lep") %>% # number of species tested
+  filter(cypermethrin == "CYPERMETHRIN") %>%
+  rename(pesticide_name = cypermethrin)
+
+# adding cypermethrin to summary table
+summary_table <- rbind(
+  summary_table, cypermethrin_ld50
+)
+
 
 write.csv(summary_table, file = "summary_table_topical_LD50.csv", row.names = F)
 
