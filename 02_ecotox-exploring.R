@@ -369,3 +369,33 @@ summary_table_all <- rbind(
 
 write.csv(summary_table_all, file = "summary_table_topical_oral_LD50.csv", row.names = F)
 
+# Separate by oral and topical
+summary_table_separate <- lep_topical_oral %>%
+  group_by(pesticide_class, pesticide_name, converted_units, exposure_type) %>%
+  reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+          median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+          sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+          n = n(), # number of studies
+          n_species = length(unique(genus_species)),
+          group = "lep") %>% # number of species tested
+  filter(pesticide_name != "CYPERMETHRIN") # calculating cypermethrin seperately as a combo of all cypermethrins
+
+cypermethrin_ld50_separate <- lep_topical_oral %>%
+  mutate(cypermethrin = if_else(pesticide_name %in% c("ALPHA CYPERMETHRIN", "ZETA-CYPERMETHRIN", "CYPERMETHRIN"), "CYPERMETHRIN", NA)) %>%
+  group_by(pesticide_class, cypermethrin, converted_units, exposure_type) %>%
+  reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+          median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+          sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+          n = n(), # number of studies
+          n_species = length(unique(genus_species)),
+          group = "lep") %>% # number of species tested
+  filter(cypermethrin == "CYPERMETHRIN") %>%
+  rename(pesticide_name = cypermethrin)
+
+# adding cypermethrin to summary table
+summary_table_separate <- rbind(
+  summary_table_separate, cypermethrin_ld50_separate
+)
+
+write.csv(summary_table_separate, file = "summary_table_topical_oral_sep_LD50.csv", row.names = F)
+
