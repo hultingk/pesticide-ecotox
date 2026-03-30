@@ -73,11 +73,10 @@ lep_data <- lep_data %>%
                          "Multiple routes within environmental exposures") ~ "Other"
   ))
 
-#### FILTERING ####
+# further filtering - larva and observations less than 5 days 
 lep_data_sub <- lep_data %>%
   filter(observed_duration_days < 5) %>% # want observations of 1-4 days
-  filter(organism_lifestage %in% c("Instar", "Larva", "Neonate")) %>% # filtering for larva
-  filter(endpoint == "LD50") # only keeping LD50
+  filter(organism_lifestage %in% c("Instar", "Larva", "Neonate")) # filtering for larva
 
 
 ###### standardize between units ######
@@ -174,17 +173,19 @@ for (i in 1:nrow(lep_data_sub)) {
   }
 }
 
-lep_data_sub <- lep_data_sub %>% # removing units that weren't removed above for some reason
+# further removing observations with unneeded units
+lep_data_sub <- lep_data_sub %>% # removing units that weren't removed above 
   filter(!observed_response_units_converted %in% c("ppm", "g/ha", "ug/cm2"))
 
-### MOST COMMON will probably by topical, LD50, ug/org 
+### MOST COMMON is topical, LD50, ug/org 
 endpoint_summary <- lep_data_sub %>%
   group_by(observed_response_units_converted, exposure_type, endpoint) %>%
   summarize(n = n())
 
+## For consumed/dietary exposure route, we need to standardize to ug/g bodyweight. To do this, we went into each paper and found the average bodyweight of the individuals tested for that LD50
 # Preparing for merge
 bodyweight <- bodyweight %>%
-  filter(organism_lifestage != "Adult") %>%
+  filter(organism_lifestage != "Adult") %>% # removing observations with adults
   select(c("citation", "genus", "species", "organism_age_mean", "organism_age_units", "average_org_weight_g"))
 
 # Merge bodyweights with lep data
@@ -197,7 +198,7 @@ lep_data_sub <- lep_data_sub %>%
          max_response_ug_org = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), observed_response_max_converted*average_org_weight_g, observed_response_max_converted),
          converted_units = if_else(observed_response_units_converted %in% c("ug/g", "ug/g bdwt", "ug/g org"), "ug/org", observed_response_units_converted))
 
-# joining pest info
+# Correcting species names: multiple names used for the same species
 lep_data_sub <- lep_data_sub %>%
   mutate(genus_species = paste(genus, species, sep = " ")) %>%
   mutate(genus_species = case_when(
@@ -208,47 +209,39 @@ lep_data_sub <- lep_data_sub %>%
   )) %>%
   select(!c("genus", "species"))
 
-# subsetting - focusing on topical for now
+# subsetting topical observations
 lep_topical <- lep_data_sub %>%
   filter(!is.na(mean_response_ug_org)) %>%
   filter(exposure_type == "Topical" & converted_units == "ug/org")
 
-##### FINAL CSV, ALL INSTARS ####
+
 # making compound names consistent with USGS names
+# classifying cypermethrins into three types to be consistent with USGS: Alpha-cypermethin, Zeta-Cypermethin, and Cypermethrin (which includes cis and trans cypermethrin)
 lep_topical$pesticide_name <- toupper(lep_topical$pesticide_name)
 lep_topical <- lep_topical %>%
   mutate(pesticide_name = dplyr::case_when(
     pesticide_name %in% c("ALPHA-CYPERMETHRIN") ~ "ALPHA CYPERMETHRIN",
-    pesticide_name %in% c("BETA-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
-    #pesticide_name %in% c("CHLORPYRIFOS OXYGEN ANALOG") ~ "CHLORPYRIFOS", ### I think this is valid -- mechanisms of chlorpyrifos toxicity is probably through it's oxygen analog https://pubchem.ncbi.nlm.nih.gov/compound/Chlorpyrifos#section=Biological-Half-Life 
-    pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("BETA-CYPERMETHRIN") ~ "CYPERMETHRIN", 
+    pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "CYPERMETHRIN", 
     pesticide_name %in% c("FLUVALINATE-TAU") ~ "FLUVALINATE TAU", 
-    pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
-    pesticide_name %in% c("ZETA-CYPERMETHRIN") ~ "ZETA-CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "CYPERMETHRIN", 
+    pesticide_name %in% c("ZETA-CYPERMETHRIN") ~ "ZETA-CYPERMETHRIN", 
     .default = pesticide_name
   ))
 
-# cypermethrin notes
-## zeta-cypermethrin and cypermethrin have the same CAS number in Maggie's spreadsheet, but different LD50s in her data
-## this same CAS number can be used for beta-cypermethrin, but our beta-cypermethrin in our data has a different one
-## there is also a second different CAS number for zeta-cypermethrin
-## Cis and Trans cypermethrin have CAS numbers that don't really show up anywhere, and looking at the paper they come from I'm not really sure how ECOTOX got them
-## perhaps calculate alpha seperately, calculate zeta using the 2 zeta CAS numbers, and calculate cypermethrin aggregating everything
-
-# CHLORPYRIFOS-METHYL not the same as CHLORPYRIFOS - can't be combined
-# ISOFENPHOS only used before 1995 -- banned, still in USGS list but doesn't show up in Maggie's data
-
-
+#### TOPICAL CSV ####
+# creating final topical csv with each row as a single LD50
 lep_topical_final <- lep_topical %>%
-  dplyr::select(cas_number, chemical_name, pesticide_name, pesticide_class, USGS, genus_species
-              , organism_lifestage, organism_age_mean, observed_duration_days, exposure_type, effect, endpoint,
+  dplyr::select(cas_number, chemical_name, pesticide_name, pesticide_class, USGS, genus_species, 
+                organism_lifestage, organism_age_mean, observed_duration_days, exposure_type, effect, endpoint,
                 mean_response_ug_org, min_response_ug_org, max_response_ug_org, converted_units, 
                 author, reference_number, title, source, publication_year) %>%
   rename(instar = organism_age_mean)
 
-write.csv(lep_topical_final, file = "lep_topical_LD50.csv", row.names = F)
+# exporting csv
+# write.csv(lep_topical_final, file = "lep_topical_LD50.csv", row.names = F)
 
-#### SUMMARY TABLE, ALL INSTARS ####
+#### SUMMARY TABLE ####
 summary_table <- lep_topical %>%
   group_by(pesticide_class, pesticide_name, converted_units) %>%
   reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
@@ -259,7 +252,7 @@ summary_table <- lep_topical %>%
           group = "lep") %>% # number of species tested
   filter(pesticide_name != "CYPERMETHRIN") # calculating cypermethrin seperately as a combo of all cypermethrins
 
-## calculating cypermethrin seperately as a combo of all cypermethrins
+## calculating cypermethrin seperately as a combo of all cypermethrins - see methods as to why
 cypermethrin_ld50 <- lep_topical %>%
   mutate(cypermethrin = if_else(pesticide_name %in% c("ALPHA CYPERMETHRIN", "ZETA-CYPERMETHRIN", "CYPERMETHRIN"), "CYPERMETHRIN", NA)) %>%
   group_by(pesticide_class, cypermethrin, converted_units) %>%
@@ -277,30 +270,31 @@ summary_table <- rbind(
   summary_table, cypermethrin_ld50
 )
 
-write.csv(summary_table, file = "summary_table_topical_LD50.csv", row.names = F)
+# exporting topical summary table
+# write.csv(summary_table, file = "summary_table_topical_LD50.csv", row.names = F)
+
 
 # Table with both oral and topical values ----
-
 # Get all in the same units
 lep_topical_oral <- lep_data_sub %>%
   filter(!is.na(mean_response_ug_org)) %>%
   filter(exposure_type != "Other" & converted_units == "ug/org")
 
 # Fix pesticide names
+# classifying cypermethrins into three types to be consistent with USGS: Alpha-cypermethin, Zeta-Cypermethin, and Cypermethrin (which includes cis and trans cypermethrin)
 lep_topical_oral$pesticide_name <- toupper(lep_topical_oral$pesticide_name)
 lep_topical_oral <- lep_topical_oral %>%
   mutate(pesticide_name = dplyr::case_when(
     pesticide_name %in% c("ALPHA-CYPERMETHRIN") ~ "ALPHA CYPERMETHRIN",
-    pesticide_name %in% c("BETA-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
-    #pesticide_name %in% c("CHLORPYRIFOS OXYGEN ANALOG") ~ "CHLORPYRIFOS", ### I think this is valid -- mechanisms of chlorpyrifos toxicity is probably through it's oxygen analog https://pubchem.ncbi.nlm.nih.gov/compound/Chlorpyrifos#section=Biological-Half-Life 
-    pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("BETA-CYPERMETHRIN") ~ "CYPERMETHRIN", 
+    pesticide_name %in% c("CIS-CYPERMETHRIN") ~ "CYPERMETHRIN", 
     pesticide_name %in% c("FLUVALINATE-TAU") ~ "FLUVALINATE TAU", 
-    pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
-    pesticide_name %in% c("ZETA-CYPERMETHRIN") ~ "ZETA-CYPERMETHRIN", ### Check to see if this can be combined with CYPERMETHRIN
+    pesticide_name %in% c("TRANS-CYPERMETHRIN") ~ "CYPERMETHRIN", 
+    pesticide_name %in% c("ZETA-CYPERMETHRIN") ~ "ZETA-CYPERMETHRIN", 
     .default = pesticide_name
   ))
 
-# Export csv
+# CSV with both topical and oral exposure routes, one row is a single LD50 value
 lep_topical_oral_final <- lep_topical_oral %>%
   dplyr::select(cas_number, chemical_name, pesticide_name, pesticide_class, USGS, genus_species, 
                 organism_lifestage, organism_age_mean, observed_duration_days, exposure_type, effect, endpoint,
@@ -308,39 +302,40 @@ lep_topical_oral_final <- lep_topical_oral %>%
                 author, reference_number, title, source, publication_year) %>%
   rename(instar = organism_age_mean)
 
-write.csv(lep_topical_oral_final, file = "lep_topical_oral_LD50.csv", row.names = F)
+# exporting
+# write.csv(lep_topical_oral_final, file = "lep_topical_oral_LD50.csv", row.names = F)
 
-# Make summary table with oral and topical
-summary_table_all <- lep_topical_oral %>%
-  group_by(pesticide_class, pesticide_name, converted_units) %>%
-  reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
-          median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
-          sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
-          n = n(), # number of studies
-          n_species = length(unique(genus_species)),
-          group = "lep") %>% # number of species tested
-  filter(pesticide_name != "CYPERMETHRIN") # calculating cypermethrin seperately as a combo of all cypermethrins
+# # Make summary table with oral and topical
+# summary_table_all <- lep_topical_oral %>%
+#   group_by(pesticide_class, pesticide_name, converted_units) %>%
+#   reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+#           median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+#           sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+#           n = n(), # number of studies
+#           n_species = length(unique(genus_species)),
+#           group = "lep") %>% # number of species tested
+#   filter(pesticide_name != "CYPERMETHRIN") # calculating cypermethrin seperately as a combo of all cypermethrins
+# 
+# ## calculating cypermethrin seperately as a combo of all cypermethrins
+# cypermethrin_ld50_all <- lep_topical_oral %>%
+#   mutate(cypermethrin = if_else(pesticide_name %in% c("ALPHA CYPERMETHRIN", "ZETA-CYPERMETHRIN", "CYPERMETHRIN"), "CYPERMETHRIN", NA)) %>%
+#   group_by(pesticide_class, cypermethrin, converted_units) %>%
+#   reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
+#           median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
+#           sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
+#           n = n(), # number of studies
+#           n_species = length(unique(genus_species)),
+#           group = "lep") %>% # number of species tested
+#   filter(cypermethrin == "CYPERMETHRIN") %>%
+#   rename(pesticide_name = cypermethrin)
+# 
+# # adding cypermethrin to summary table
+# summary_table_all <- rbind(
+#   summary_table_all, cypermethrin_ld50_all
+# )
 
-## calculating cypermethrin seperately as a combo of all cypermethrins
-cypermethrin_ld50_all <- lep_topical_oral %>%
-  mutate(cypermethrin = if_else(pesticide_name %in% c("ALPHA CYPERMETHRIN", "ZETA-CYPERMETHRIN", "CYPERMETHRIN"), "CYPERMETHRIN", NA)) %>%
-  group_by(pesticide_class, cypermethrin, converted_units) %>%
-  reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
-          median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
-          sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
-          n = n(), # number of studies
-          n_species = length(unique(genus_species)),
-          group = "lep") %>% # number of species tested
-  filter(cypermethrin == "CYPERMETHRIN") %>%
-  rename(pesticide_name = cypermethrin)
-
-# adding cypermethrin to summary table
-summary_table_all <- rbind(
-  summary_table_all, cypermethrin_ld50_all
-)
-
-
-write.csv(summary_table_all, file = "summary_table_topical_oral_LD50.csv", row.names = F)
+# exporting
+# write.csv(summary_table_all, file = "summary_table_topical_oral_LD50.csv", row.names = F)
 
 # Separate by oral and topical
 summary_table_separate <- lep_topical_oral %>%
@@ -370,5 +365,6 @@ summary_table_separate <- rbind(
   summary_table_separate, cypermethrin_ld50_separate
 )
 
-write.csv(summary_table_separate, file = "summary_table_topical_oral_sep_LD50.csv", row.names = F)
+# exporting
+# write.csv(summary_table_separate, file = "summary_table_topical_oral_sep_LD50.csv", row.names = F)
 
