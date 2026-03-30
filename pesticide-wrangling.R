@@ -7,19 +7,19 @@
 librarian::shelf(tidyverse, googledrive, googlesheets4, janitor)
 
 # Upload data ----
-# IMPORTING DATA FROM LEP EXPORT -- exported only lep data with 
+# IMPORTING DATA FROM LEP EXPORT -- exported only lep data with mortality measurements, exported as two files due to file size limitations
 lep_general_mortality <- read_sheet("https://docs.google.com/spreadsheets/d/1CuuLMViB8obWlAGZihlWlUvcpKP6DpWJbYnGrFfaJM0/edit?gid=1293937341#gid=1293937341")
 lep_other_mortality <- read_sheet("https://docs.google.com/spreadsheets/d/1G14T3yslAiXOknL1aJ9drzb1wsTffJHewW8s0QWOW1A/edit?gid=1323975835#gid=1323975835")
 
 ## importing chemical data for common names and whether it is in USGS dataset
 chemical_info <- read_sheet("https://docs.google.com/spreadsheets/d/1_v6aEuPvog9GBXyR8BIb7CkOwYDevuPtSuoRQw3LXFM/edit?gid=1160525203#gid=1160525203")
 
-# IMPORTING bodyweights
+# IMPORTING bodyweights - determined these from papers after filtering 
 bodyweight <- read_sheet("https://docs.google.com/spreadsheets/d/1xy7qhTDR19MdyVRc2AjtiHVvoKhHGTu8qLxHfAGA_e4/edit?gid=1738994693#gid=1738994693")
 
 # Data cleaning ----
 ##### LEP DATA ####
-# combining
+# combining two files
 lep_data <- rbind(
   lep_general_mortality,
   lep_other_mortality
@@ -29,10 +29,10 @@ lep_data <- rbind(
 lep_data <- clean_names(lep_data)
 
 
-# filtering what we need
+# filtering what we need - only keeping LD50 and active ingredients
 lep_data <- lep_data %>%
   separate(species_scientific_name, into = c("genus", "species"), sep = "^\\S*\\K\\s+") %>% # separating into genus and species 
-  filter(endpoint %in% c("LD50", "LC50")) %>% # filtering by endpoint  
+  filter(endpoint %in% c("LD50")) %>% # filtering by endpoint  
   filter(conc_1_type_author == "Active ingredient") ## Filter for only active ingredient -- we don't know we is lethal in formulations, CHECK what total is
 
 
