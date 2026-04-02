@@ -19,7 +19,7 @@ bodyweight <- read_sheet("https://docs.google.com/spreadsheets/d/1xy7qhTDR19MdyV
 
 # Data cleaning ----
 ##### LEP DATA ####
-# combining two files
+# Combining the two mortality files
 lep_data <- rbind(
   lep_general_mortality,
   lep_other_mortality
@@ -28,13 +28,11 @@ lep_data <- rbind(
 # cleaning column names
 lep_data <- clean_names(lep_data)
 
-
 # filtering what we need - only keeping LD50 and active ingredients
 lep_data <- lep_data %>%
   separate(species_scientific_name, into = c("genus", "species"), sep = "^\\S*\\K\\s+") %>% # separating into genus and species 
   filter(endpoint %in% c("LD50")) %>% # filtering by endpoint  
   filter(conc_1_type_author == "Active ingredient") ## Filter for only active ingredient -- we don't know we is lethal in formulations, CHECK what total is
-
 
 ## Rename chemicals -- two different DDTs, called both DDT
 lep_data <- lep_data %>%
@@ -43,7 +41,7 @@ lep_data <- lep_data %>%
 
 ## Filtering for pesticides and no mixtures
 lep_data <- lep_data %>%
-  filter(chemical_name_common != "mixture" & chemical_name_common != "morphine sulfate") # removed 2 observations
+  filter(chemical_name_common != "mixture" & chemical_name_common != "morphine sulfate") # removed 1 observations
 
 # removing columns
 chemical_info <- chemical_info %>%
@@ -62,11 +60,10 @@ lep_data <- lep_data %>%
   filter(!pesticide %in% c("no", "NA", "commercial mixture", "pesticide metabolite"))
 
 # organize into topical vs not topical
-# Spray, foliar seems dietary to me, but I can't find the one paper online
 lep_data <- lep_data %>%
   mutate(exposure_type = dplyr::case_when(
-    exposure_type %in% c("Dermal", "Dipped or soaked", "Direct application",
-                         "Immersion", "Spray, foliar", "Spray, hand", "Spray, unspecified",
+    exposure_type %in% c("Dermal", "Direct application",
+                         "Spray, unspecified",
                          "Surface area dose", "Topical, general") ~ "Topical",
     exposure_type %in% c("Diet, unspecified", "Food", "Injection, unspecified", "Subcutaneous") ~ "Consumed/injected",
     exposure_type %in% c("Environmental, unspecified", "Fumigation", "Multiple routes between application groups",
@@ -304,38 +301,6 @@ lep_topical_oral_final <- lep_topical_oral %>%
 
 # exporting
 # write.csv(lep_topical_oral_final, file = "lep_topical_oral_LD50.csv", row.names = F)
-
-# # Make summary table with oral and topical
-# summary_table_all <- lep_topical_oral %>%
-#   group_by(pesticide_class, pesticide_name, converted_units) %>%
-#   reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
-#           median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
-#           sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
-#           n = n(), # number of studies
-#           n_species = length(unique(genus_species)),
-#           group = "lep") %>% # number of species tested
-#   filter(pesticide_name != "CYPERMETHRIN") # calculating cypermethrin seperately as a combo of all cypermethrins
-# 
-# ## calculating cypermethrin seperately as a combo of all cypermethrins
-# cypermethrin_ld50_all <- lep_topical_oral %>%
-#   mutate(cypermethrin = if_else(pesticide_name %in% c("ALPHA CYPERMETHRIN", "ZETA-CYPERMETHRIN", "CYPERMETHRIN"), "CYPERMETHRIN", NA)) %>%
-#   group_by(pesticide_class, cypermethrin, converted_units) %>%
-#   reframe(mean_LD50 = mean(mean_response_ug_org, na.rm = T),  # mean value
-#           median_LD50 = median(mean_response_ug_org, na.rm = T), # median value
-#           sd_LD50 = sd(mean_response_ug_org, na.rm = T), # sd 
-#           n = n(), # number of studies
-#           n_species = length(unique(genus_species)),
-#           group = "lep") %>% # number of species tested
-#   filter(cypermethrin == "CYPERMETHRIN") %>%
-#   rename(pesticide_name = cypermethrin)
-# 
-# # adding cypermethrin to summary table
-# summary_table_all <- rbind(
-#   summary_table_all, cypermethrin_ld50_all
-# )
-
-# exporting
-# write.csv(summary_table_all, file = "summary_table_topical_oral_LD50.csv", row.names = F)
 
 # Separate by oral and topical
 summary_table_separate <- lep_topical_oral %>%
